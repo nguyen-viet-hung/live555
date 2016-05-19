@@ -13,7 +13,7 @@
 #pragma warning(disable:4996)
 #endif
 
-#if !defined(strcasestr)
+#if defined(_WIN32) || defined(WIN32)
 char *strcasestr(const char *phaystack, const char *pneedle)
 	// To make this work with MS Visual C++, this version uses tolower/toupper() in place of
 	// _tolower/_toupper(), since apparently in GNU C, the underscore macros are identical
