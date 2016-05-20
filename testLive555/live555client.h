@@ -46,7 +46,17 @@
 #include <thread>
 #include <vector>
 
-// here are macros taken from vlc
+// here are taken from vlc
+
+enum es_format_category_e
+{
+    UNKNOWN_ES = 0x00,
+    VIDEO_ES,
+    AUDIO_ES,
+    SPU_ES,
+    NAV_ES,
+};
+
 #ifdef WORDS_BIGENDIAN
 #   define VLC_FOURCC( a, b, c, d ) \
         ( ((uint32_t)d) | ( ((uint32_t)c) << 8 ) \
@@ -524,6 +534,7 @@ public:
 	class LiveTrack {
 	public:
 		typedef struct _media_format {
+			uint8_t  i_cat;  //catalog of this track (audio/video/text vv...)
 			uint32_t i_codec;
 			uint32_t i_extra;
 			uint8_t* p_extra;

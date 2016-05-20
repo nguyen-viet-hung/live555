@@ -417,7 +417,7 @@ Live555Client::LiveTrack::~LiveTrack()
 int Live555Client::LiveTrack::init()
 {
 	MediaSubsession* sub = static_cast<MediaSubsession*>(media_sub_session);
-	p_buffer    = new uint8_t [i_buffer];
+	p_buffer    = new uint8_t [i_buffer + 4];
 
 	if (!p_buffer)
 		return -1;
@@ -426,6 +426,7 @@ int Live555Client::LiveTrack::init()
     if( !strcmp( sub->mediumName(), "audio" ) )
     {
         //es_format_Init( &tk->fmt, AUDIO_ES, VLC_FOURCC('u','n','d','f') );
+		fmt.i_cat = AUDIO_ES;
         fmt.audio.i_channels = sub->numChannels();
         fmt.audio.i_rate = sub->rtpTimestampFrequency();
 
@@ -574,6 +575,7 @@ int Live555Client::LiveTrack::init()
     else if( !strcmp( sub->mediumName(), "video" ) )
     {
         //es_format_Init( &tk->fmt, VIDEO_ES, VLC_FOURCC('u','n','d','f') );
+		fmt.i_cat = VIDEO_ES;
         if( !strcmp( sub->codecName(), "MPV" ) )
         {
             fmt.i_codec = VLC_CODEC_MPGV;
@@ -887,13 +889,7 @@ int Live555Client::setup()
         else
             b_init = sub->initiate();
 
-        if( !b_init )
-        {
-            //msg_Warn( p_demux, "RTP subsession '%s/%s' failed (%s)",
-            //          sub->mediumName(), sub->codecName(),
-            //          p_sys->env->getResultMsg() );
-        }
-        else
+        if( b_init )
         {
             if( sub->rtpSource() != NULL )
             {
@@ -1003,15 +999,27 @@ int Live555Client::demux(void)
 
     /* First warn we want to read data */
     event_data = 0;
+
     for (auto it = listTracks.begin(); it != listTracks.end(); ++it)
     {
         LiveTrack *tk = *it;
 		MediaSubsession* sub = static_cast<MediaSubsession*>(tk->getMediaSubsession());
+		uint8_t* p_buffer = tk->buffer();
+
+		if( tk->getFormat().i_codec == VLC_CODEC_AMR_NB ||
+			tk->getFormat().i_codec == VLC_CODEC_AMR_WB )
+		{
+			p_buffer++;
+		}
+		else if( tk->getFormat().i_codec == VLC_CODEC_H261 || tk->getFormat().i_codec == VLC_CODEC_H264 || tk->getFormat().i_codec == VLC_CODEC_HEVC )
+		{
+			p_buffer += 4;
+		}
 
         if( !tk->isWaiting() )
         {
             tk->doWaiting(1);
-            sub->readSource()->getNextFrame( tk->buffer(), tk->buffer_size(),
+            sub->readSource()->getNextFrame( p_buffer, tk->buffer_size(),
                                           Live555Client::LiveTrack::streamRead, tk, Live555Client::LiveTrack::streamClose, tk );
         }
     }
@@ -1396,12 +1404,6 @@ void Live555Client::onStreamRead(LiveTrack* track, unsigned int i_size,
     //    tk->p_es = es_out_Add( p_demux->out, &tk->fmt );
     //}
 
-#if 0
-    fprintf( stderr, "StreamRead size=%d pts=%lld\n",
-             i_size,
-             pts.tv_sec * 1000000LL + pts.tv_usec );
-#endif
-
     /* grow buffer if it looks like buffer is too small, but don't eat
      * up all the memory on strange streams */
     if( i_truncated_bytes > 0 )
@@ -1432,42 +1434,35 @@ void Live555Client::onStreamRead(LiveTrack* track, unsigned int i_size,
     }
 
     assert( i_size <= track->buffer_size() );
+	unsigned int out_size = i_size;
 
-    //if( tk->fmt.i_codec == VLC_CODEC_AMR_NB ||
-    //    tk->fmt.i_codec == VLC_CODEC_AMR_WB )
-    //{
-    //    AMRAudioSource *amrSource = (AMRAudioSource*)tk->sub->readSource();
+	if( track->getFormat().i_codec == VLC_CODEC_AMR_NB ||
+        track->getFormat().i_codec == VLC_CODEC_AMR_WB )
+    {
+        AMRAudioSource *amrSource = (AMRAudioSource*)sub->readSource();
 
-    //    p_block = block_Alloc( i_size + 1 );
-    //    p_block->p_buffer[0] = amrSource->lastFrameHeader();
-    //    memcpy( p_block->p_buffer + 1, tk->p_buffer, i_size );
-    //}
-    //else if( tk->fmt.i_codec == VLC_CODEC_H261 )
-    //{
-    //    H261VideoRTPSource *h261Source = (H261VideoRTPSource*)tk->sub->rtpSource();
-    //    uint32_t header = h261Source->lastSpecialHeader();
-    //    p_block = block_Alloc( i_size + 4 );
-    //    memcpy( p_block->p_buffer, &header, 4 );
-    //    memcpy( p_block->p_buffer + 4, tk->p_buffer, i_size );
+        track->buffer()[0] = amrSource->lastFrameHeader();
+        out_size++;
+    }
+    else if( track->getFormat().i_codec == VLC_CODEC_H261 )
+    {
+        H261VideoRTPSource *h261Source = (H261VideoRTPSource*)sub->rtpSource();
+        uint32_t header = h261Source->lastSpecialHeader();
+        memcpy( track->buffer(), &header, 4 );
+        out_size += 4;
 
-    //    if( tk->sub->rtpSource()->curPacketMarkerBit() )
-    //        p_block->i_flags |= BLOCK_FLAG_END_OF_FRAME;
-    //}
-    //else if( tk->fmt.i_codec == VLC_CODEC_H264 || tk->fmt.i_codec == VLC_CODEC_HEVC )
-    //{
-    //    if( tk->fmt.i_codec == VLC_CODEC_H264 && (tk->p_buffer[0] & 0x1f) >= 24 )
-    //        msg_Warn( p_demux, "unsupported NAL type for H264" );
-    //    else if( tk->fmt.i_codec == VLC_CODEC_HEVC && ((tk->p_buffer[0] & 0x7e)>>1) >= 48 )
-    //        msg_Warn( p_demux, "unsupported NAL type for H265" );
-
-    //    /* Normal NAL type */
-    //    p_block = block_Alloc( i_size + 4 );
-    //    p_block->p_buffer[0] = 0x00;
-    //    p_block->p_buffer[1] = 0x00;
-    //    p_block->p_buffer[2] = 0x00;
-    //    p_block->p_buffer[3] = 0x01;
-    //    memcpy( &p_block->p_buffer[4], tk->p_buffer, i_size );
-    //}
+        //if( sub->rtpSource()->curPacketMarkerBit() )
+        //    p_block->i_flags |= BLOCK_FLAG_END_OF_FRAME;
+    }
+    else if( track->getFormat().i_codec == VLC_CODEC_H264 || track->getFormat().i_codec == VLC_CODEC_HEVC )
+    {
+        /* Normal NAL type */
+        track->buffer()[0] = 0x00;
+        track->buffer()[1] = 0x00;
+        track->buffer()[2] = 0x00;
+        track->buffer()[3] = 0x01;
+		out_size += 4;
+    }
     //else if( tk->b_asf )
     //{
     //    p_block = StreamParseAsf( p_demux, tk,
@@ -1491,7 +1486,8 @@ void Live555Client::onStreamRead(LiveTrack* track, unsigned int i_size,
         f_npt = track->getNPT();
 
 	i_dts = ( track->getFormat().i_codec == VLC_CODEC_MPGV ) ? VLC_TS_INVALID : (VLC_TS_0 + i_pts);
-	onData(track, track->buffer(), i_size, i_truncated_bytes, i_pts, i_dts);
+
+	onData(track, track->buffer(), out_size, i_truncated_bytes, i_pts, i_dts);
 
   //  if( p_block )
   //  {
