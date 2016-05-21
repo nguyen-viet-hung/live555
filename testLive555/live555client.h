@@ -1,7 +1,7 @@
 /******************************************************************************************************
  * class Live555Client using live555 library to create a client for RTSP, base from code of VLC       *
  * www.videolan.org                                                                                   *
- * Author: HungNV                                                                                     *
+ * Author: HungNV (hung.viet.nguyen.hp at gmail dot com)                                              *
  * Date  : 2016-05-17 - 15:00                                                                         *
  *                                                                                                    *
  * Main flow using live555 as follow                                                                  *
@@ -36,6 +36,20 @@
  *                                                                                                    *
  * Here is the brief note about flow of using live555 library and how to use the class.               *
  * If you have any question, feel free contact me at hung.viet.nguyen.hp at gmail dot com             *
+ ******************************************************************************************************
+ * This program is free software; you can redistribute it and/or modify it                            *
+ * under the terms of the GNU Lesser General Public License as published by                           *
+ * the Free Software Foundation; either version 2.1 of the License, or                                *
+ * (at your option) any later version.                                                                *
+ *                                                                                                    *
+ * This program is distributed in the hope that it will be useful,                                    *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of                                     *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                                       *
+ * GNU Lesser General Public License for more details.                                                *
+ *                                                                                                    *
+ * You should have received a copy of the GNU Lesser General Public License                           *
+ * along with this program; if not, write to the Free Software Foundation,                            *
+ * Inc., 51 Franklin Street, Fifth Floor, Boston MA 02110-1301, USA.                                  *
  ******************************************************************************************************/
 
 #ifndef LIVE555_CLIENT_H__
@@ -547,8 +561,10 @@ public:
 				int i_bitspersample;
 			} audio;
 
-			//struct {
-			//} video;
+			struct {
+				int i_width;
+				int i_height;
+			} video;
 		} media_format;
 	protected:
 		Live555Client* parent;
@@ -579,14 +595,19 @@ public:
 		int init();
 
 		bool isSelected() { return b_selected; }
+		void setSelected(bool val) { b_selected = val; }
 		bool isWaiting() { return waiting != 0; }
 		void doWaiting(char val) { waiting = val; }
+		bool isMuxed() { return b_muxed; }
+		bool isQuicktime() { return b_quicktime; }
+		bool isAsf() { return b_asf; }
+		bool discardTruncated() { return b_discard_trunc; }
 		void* getMediaSubsession() { return media_sub_session; }
 
 		void setNPT(double npt) { f_npt = npt; }
 		double getNPT() { return f_npt; }
 
-		const media_format& getFormat() const { return fmt; }
+		media_format& getFormat() { return fmt; }
 
 		uint8_t* buffer() { return p_buffer; }
 		unsigned int buffer_size() { return i_buffer; }
@@ -619,6 +640,10 @@ protected:
 	bool             b_no_data;     /* if we never received any data */
     int              i_no_data_ti;  /* consecutive number of TaskInterrupt */
 
+	bool             b_need_stop;
+	bool             b_is_paused;
+	volatile bool    b_do_control_pause_state;
+
 	unsigned short   u_port_begin;  /* RTP port that client will be use */
 
 	std::string user_name;
@@ -636,17 +661,21 @@ protected:
 	bool waitLive555Response( int i_timeout = 0 /* ms */ );
 	int setup();
 
+	void controlPauseState();
+
 	int demux(void);
 	static void demux_loop(void* opaque);
 public:
 	Live555Client(void);
 	virtual ~Live555Client(void);
 
-	// callback functions
 	int open(const char* url);
 	int play();
-	int pause();
+	void togglePause();
 	int stop();
+
+	bool isNeedStop() { return b_need_stop; }
+	bool isPaused() { return b_is_paused; }
 
 	void setUser(const char* user_name, const char* password);
 

@@ -1,3 +1,24 @@
+/******************************************************************************************************
+ * class Live555Client using live555 library to create a client for RTSP, base from code of VLC       *
+ * www.videolan.org                                                                                   *
+ * Author: HungNV (hung.viet.nguyen.hp at gmail dot com)                                              *
+ * Date  : 2016-05-17 - 15:00                                                                         *
+ ******************************************************************************************************
+ * This program is free software; you can redistribute it and/or modify it                            *
+ * under the terms of the GNU Lesser General Public License as published by                           *
+ * the Free Software Foundation; either version 2.1 of the License, or                                *
+ * (at your option) any later version.                                                                *
+ *                                                                                                    *
+ * This program is distributed in the hope that it will be useful,                                    *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of                                     *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                                       *
+ * GNU Lesser General Public License for more details.                                                *
+ *                                                                                                    *
+ * You should have received a copy of the GNU Lesser General Public License                           *
+ * along with this program; if not, write to the Free Software Foundation,                            *
+ * Inc., 51 Franklin Street, Fifth Floor, Boston MA 02110-1301, USA.                                  *
+ ******************************************************************************************************/
+
 #include "live555client.h"
 #include <UsageEnvironment.hh>
 #include <BasicUsageEnvironment.hh>
@@ -8,6 +29,7 @@
 #include <chrono>
 #include <string.h>
 #include <assert.h>
+#include <limits.h>
 
 #if defined(_WIN32) || defined(WIN32)
 #pragma warning(disable:4996)
@@ -979,6 +1001,23 @@ int Live555Client::setup()
     return i_return;
 }
 
+void Live555Client::controlPauseState()
+{
+	RTSPClient* client = static_cast<RTSPClient*>(rtsp);
+	MediaSession* ms = static_cast<MediaSession*>(media_session);
+
+	b_is_paused = !b_is_paused;
+
+	if (b_is_paused) {
+		client->sendPauseCommand( *ms, MyRTSPClient::default_live555_callback );
+	}
+	else {
+		client->sendPlayCommand( *ms, MyRTSPClient::default_live555_callback, -1.0f, -1.0f, ms->scale() );
+	}
+
+    waitLive555Response();
+}
+
 int Live555Client::demux(void)
 {
     TaskToken      task;
@@ -988,6 +1027,9 @@ int Live555Client::demux(void)
 
     bool            b_send_pcr = true;
     //int             i;
+
+	if (b_is_paused)
+		return 1;
 
     /* Check if we need to send the server a Keep-A-Live signal */
     if( b_timeout_call && client && ms )
@@ -1000,9 +1042,16 @@ int Live555Client::demux(void)
     /* First warn we want to read data */
     event_data = 0;
 
+	std::size_t numIdle = 0;
     for (auto it = listTracks.begin(); it != listTracks.end(); ++it)
     {
         LiveTrack *tk = *it;
+
+		if (!tk->isSelected()) {
+			numIdle ++;
+			continue;
+		}
+
 		MediaSubsession* sub = static_cast<MediaSubsession*>(tk->getMediaSubsession());
 		uint8_t* p_buffer = tk->buffer();
 
@@ -1023,7 +1072,12 @@ int Live555Client::demux(void)
                                           Live555Client::LiveTrack::streamRead, tk, Live555Client::LiveTrack::streamClose, tk );
         }
     }
-    /* Create a task that will be called if we wait more than 300ms */
+
+	/* Check if no track is available */
+	if (numIdle == listTracks.size())
+		b_need_stop = true;
+    
+	/* Create a task that will be called if we wait more than 300ms */
     task = sch->scheduleDelayedTask( 300000, taskInterruptData, this );
 
     /* Do the read */
@@ -1087,6 +1141,7 @@ int Live555Client::demux(void)
   //      msg_Warn( p_demux, "no data received in 10s, eof ?" );
   //      return 0;
   //  }
+
     return b_error ? 0 : 1;
 }
 
@@ -1094,13 +1149,19 @@ void Live555Client::demux_loop(void* opaque)
 {
 	Live555Client* pThis = static_cast<Live555Client*>(opaque);
 	std::chrono::high_resolution_clock::time_point last_call_timeout= std::chrono::high_resolution_clock::now();
-	while (pThis->demuxLoopFlag && !pThis->b_error)
+	while (pThis->demuxLoopFlag)
 	{
 		std::chrono::seconds lasting = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - last_call_timeout);
 		if (lasting.count() >= pThis->i_timeout) {
 			last_call_timeout= std::chrono::high_resolution_clock::now();
 			pThis->b_timeout_call = true;
 		}
+
+		if (pThis->b_do_control_pause_state) {
+			pThis->controlPauseState();
+			pThis->b_do_control_pause_state = false;
+		}
+
 		pThis->demux();
 	}
 }
@@ -1171,6 +1232,8 @@ int Live555Client::open(const char* url)
         }
     }
 
+	f_npt_start = 0;
+
 	return setup();
 }
 
@@ -1190,6 +1253,9 @@ int Live555Client::play()
             //msg_Err( p_demux, "RTSP PLAY failed %s", p_sys->env->getResultMsg() );
             return -1;//VLC_EGENERIC;
         }
+
+		if (i_live555_ret)
+			return i_live555_ret;
 
         /* Retrieve the timeout value and set up a timeout prevention thread */
         i_timeout = client->sessionTimeoutParameter();
@@ -1228,15 +1294,21 @@ int Live555Client::play()
         f_npt_length = ms->playEndTime();
 
 	// now create thread for get data
+	b_need_stop = false;
 	b_error = false;
-	demuxLoopFlag = true;
-	demuxLoopHandle = new std::thread(demux_loop, this);
+	b_is_paused = false;
+	b_do_control_pause_state = false;
+
+	if (!demuxLoopHandle) {
+		demuxLoopFlag = true;
+		demuxLoopHandle = new std::thread(demux_loop, this);
+	}
     return 0;
 }
 
-int Live555Client::pause()
+void Live555Client::togglePause()
 {
-	return 0;
+	b_do_control_pause_state = true;
 }
 
 int Live555Client::stop()
@@ -1342,67 +1414,67 @@ void Live555Client::onStreamRead(LiveTrack* track, unsigned int i_size,
     /* Retrieve NPT for this pts */
     track->setNPT(sub->getNormalPlayTime(pts));
 
-    //if( tk->b_quicktime && tk->p_es == NULL )
-    //{
-    //    QuickTimeGenericRTPSource *qtRTPSource =
-    //        (QuickTimeGenericRTPSource*)tk->sub->rtpSource();
-    //    QuickTimeGenericRTPSource::QTState &qtState = qtRTPSource->qtState;
-    //    uint8_t *sdAtom = (uint8_t*)&qtState.sdAtom[4];
+    if( track->isQuicktime() /* && tk->p_es == NULL */)
+    {
+        QuickTimeGenericRTPSource *qtRTPSource =
+            (QuickTimeGenericRTPSource*)sub->rtpSource();
+        QuickTimeGenericRTPSource::QTState &qtState = qtRTPSource->qtState;
+        uint8_t *sdAtom = (uint8_t*)&qtState.sdAtom[4];
 
-    //    /* Get codec information from the quicktime atoms :
-    //     * http://developer.apple.com/quicktime/icefloe/dispatch026.html */
-    //    if( tk->fmt.i_cat == VIDEO_ES ) {
-    //        if( qtState.sdAtomSize < 16 + 32 )
-    //        {
-    //            /* invalid */
-    //            event_data = 0xff;
-    //            track->doWaiting(0);
-    //            return;
-    //        }
-    //        tk->fmt.i_codec = VLC_FOURCC(sdAtom[0],sdAtom[1],sdAtom[2],sdAtom[3]);
-    //        tk->fmt.video.i_width  = (sdAtom[28] << 8) | sdAtom[29];
-    //        tk->fmt.video.i_height = (sdAtom[30] << 8) | sdAtom[31];
+        /* Get codec information from the quicktime atoms :
+         * http://developer.apple.com/quicktime/icefloe/dispatch026.html */
+        if( track->getFormat().i_cat == VIDEO_ES ) {
+            if( qtState.sdAtomSize < 16 + 32 )
+            {
+                /* invalid */
+                event_data = (char)0xff;
+                track->doWaiting(0);
+                return;
+            }
+            track->getFormat().i_codec = VLC_FOURCC(sdAtom[0],sdAtom[1],sdAtom[2],sdAtom[3]);
+            track->getFormat().video.i_width  = (sdAtom[28] << 8) | sdAtom[29];
+            track->getFormat().video.i_height = (sdAtom[30] << 8) | sdAtom[31];
 
-    //        if( tk->fmt.i_codec == VLC_FOURCC('a', 'v', 'c', '1') )
-    //        {
-    //            uint8_t *pos = (uint8_t*)qtRTPSource->qtState.sdAtom + 86;
-    //            uint8_t *endpos = (uint8_t*)qtRTPSource->qtState.sdAtom
-    //                              + qtRTPSource->qtState.sdAtomSize;
-    //            while (pos+8 < endpos) {
-    //                unsigned int atomLength = pos[0]<<24 | pos[1]<<16 | pos[2]<<8 | pos[3];
-    //                if( atomLength == 0 || atomLength > (unsigned int)(endpos-pos)) break;
-    //                if( memcmp(pos+4, "avcC", 4) == 0 &&
-    //                    atomLength > 8 &&
-    //                    atomLength <= INT_MAX )
-    //                {
-    //                    tk->fmt.i_extra = atomLength-8;
-    //                    tk->fmt.p_extra = xmalloc( tk->fmt.i_extra );
-    //                    memcpy(tk->fmt.p_extra, pos+8, atomLength-8);
-    //                    break;
-    //                }
-    //                pos += atomLength;
-    //            }
-    //        }
-    //        else
-    //        {
-    //            tk->fmt.i_extra        = qtState.sdAtomSize - 16;
-    //            tk->fmt.p_extra        = xmalloc( tk->fmt.i_extra );
-    //            memcpy( tk->fmt.p_extra, &sdAtom[12], tk->fmt.i_extra );
-    //        }
-    //    }
-    //    else {
-    //        if( qtState.sdAtomSize < 24 )
-    //        {
-    //            /* invalid */
-    //            p_sys->event_data = 0xff;
-    //            tk->waiting = 0;
-    //            return;
-    //        }
-    //        tk->fmt.i_codec = VLC_FOURCC(sdAtom[0],sdAtom[1],sdAtom[2],sdAtom[3]);
-    //        tk->fmt.audio.i_bitspersample = (sdAtom[22] << 8) | sdAtom[23];
-    //    }
-    //    tk->p_es = es_out_Add( p_demux->out, &tk->fmt );
-    //}
+            if( track->getFormat().i_codec == VLC_FOURCC('a', 'v', 'c', '1') )
+            {
+                uint8_t *pos = (uint8_t*)qtRTPSource->qtState.sdAtom + 86;
+                uint8_t *endpos = (uint8_t*)qtRTPSource->qtState.sdAtom
+                                  + qtRTPSource->qtState.sdAtomSize;
+                while (pos+8 < endpos) {
+                    unsigned int atomLength = pos[0]<<24 | pos[1]<<16 | pos[2]<<8 | pos[3];
+                    if( atomLength == 0 || atomLength > (unsigned int)(endpos-pos)) break;
+                    if( memcmp(pos+4, "avcC", 4) == 0 &&
+                        atomLength > 8 &&
+                        atomLength <= INT_MAX )
+                    {
+                    	track->getFormat().i_extra = atomLength-8;
+                    	track->getFormat().p_extra = new uint8_t[ track->getFormat().i_extra ];
+                        memcpy(track->getFormat().p_extra, pos+8, atomLength-8);
+                        break;
+                    }
+                    pos += atomLength;
+                }
+            }
+            else
+            {
+            	track->getFormat().i_extra        = qtState.sdAtomSize - 16;
+            	track->getFormat().p_extra        = new uint8_t[ track->getFormat().i_extra ];
+                memcpy( track->getFormat().p_extra, &sdAtom[12], track->getFormat().i_extra );
+            }
+        }
+        else {
+            if( qtState.sdAtomSize < 24 )
+            {
+                /* invalid */
+                event_data = (char)0xff;
+                track->doWaiting(0);
+                return;
+            }
+            track->getFormat().i_codec = VLC_FOURCC(sdAtom[0],sdAtom[1],sdAtom[2],sdAtom[3]);
+            track->getFormat().audio.i_bitspersample = (sdAtom[22] << 8) | sdAtom[23];
+        }
+        //tk->p_es = es_out_Add( p_demux->out, &tk->fmt );
+    }
 
     /* grow buffer if it looks like buffer is too small, but don't eat
      * up all the memory on strange streams */
@@ -1489,27 +1561,6 @@ void Live555Client::onStreamRead(LiveTrack* track, unsigned int i_size,
 
 	onData(track, track->buffer(), out_size, i_truncated_bytes, i_pts, i_dts);
 
-  //  if( p_block )
-  //  {
-  //      if( !tk->b_muxed && !tk->b_asf )
-  //      {
-  //          if( i_pts != tk->i_pts )
-  //              p_block->i_pts = VLC_TS_0 + i_pts;
-  //          /*FIXME: for h264 you should check that packetization-mode=1 in sdp-file */
-  //          p_block->i_dts = ( tk->fmt.i_codec == VLC_CODEC_MPGV ) ? VLC_TS_INVALID : (VLC_TS_0 + i_pts);
-  //      }
-
-		//// callback for data
-		//onData(track, track->buffer(), i_size, i_pts);
-
-  //      //if( tk->b_muxed )
-  //      //    stream_DemuxSend( tk->p_out_muxed, p_block );
-  //      //else if( tk->b_asf )
-  //      //    stream_DemuxSend( p_sys->p_out_asf, p_block );
-  //      //else
-  //      //    es_out_Send( p_demux->out, tk->p_es, p_block );
-  //  }
-
     /* warn that's ok */
     event_data = (char)0xff;
 
@@ -1526,6 +1577,7 @@ void Live555Client::onStreamRead(LiveTrack* track, unsigned int i_size,
 
 void Live555Client::onStreamClose(LiveTrack* track)
 {
+	track->setSelected(true);
     event_rtsp = (char)0xff;
     event_data = (char)0xff;
 }

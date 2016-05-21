@@ -18,12 +18,18 @@
     <ClInclude Include="live555client.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="videodecoder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="live555client.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="videodecoder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
