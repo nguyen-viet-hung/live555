@@ -1171,8 +1171,26 @@ Live555Client::Live555Client(void)
 	, scheduler(NULL)
 	, rtsp(NULL)
 	, media_session(NULL)
+	, event_rtsp(0)
+	, event_data(0)
+	, b_error(false)
+	, b_get_param(false)
+	, i_live555_ret(0)
+	, i_timeout(60)
+	, b_timeout_call(false)
+	, i_pcr(VLC_TS_0)
+	, f_npt(0)
+	, f_npt_length(0)
+	, f_npt_start(0)
+	, b_no_data(false)
+	, i_no_data_ti(0)
+	, b_need_stop(false)
+	, b_is_paused(false)
+	, b_do_control_pause_state(false)
+	, u_port_begin(0)
+	, demuxLoopFlag(true)
+	, demuxLoopHandle(NULL)
 {
-	u_port_begin = 0;
 }
 
 
