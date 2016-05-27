@@ -1028,9 +1028,6 @@ int Live555Client::demux(void)
     bool            b_send_pcr = true;
     //int             i;
 
-	if (b_is_paused)
-		return 1;
-
     /* Check if we need to send the server a Keep-A-Live signal */
     if( b_timeout_call && client && ms )
     {
@@ -1038,6 +1035,9 @@ int Live555Client::demux(void)
         client->sendGetParameterCommand( *ms, NULL, psz_bye );
         b_timeout_call = false;
     }
+
+	if (b_is_paused)
+		return 1;
 
     /* First warn we want to read data */
     event_data = 0;
