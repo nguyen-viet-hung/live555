@@ -640,7 +640,7 @@ protected:
 	bool             b_no_data;     /* if we never received any data */
     int              i_no_data_ti;  /* consecutive number of TaskInterrupt */
 
-	bool             b_need_stop;
+	volatile bool    b_need_stop;
 	bool             b_is_paused;
 	volatile bool    b_do_control_pause_state;
 
@@ -649,6 +649,7 @@ protected:
 	std::string user_name;
 	std::string password;
 	std::string sdp;
+	std::string user_agent;
 
 	std::vector<LiveTrack*> listTracks;
 
@@ -678,6 +679,7 @@ public:
 	bool isPaused() { return b_is_paused; }
 
 	void setUser(const char* user_name, const char* password);
+	void setUserAgent(const char* user_agent);
 
 	void setRTPPortBegin(unsigned short port_begin) { u_port_begin = port_begin; }
 	unsigned short getRTPPortNoUse() { return u_port_begin; }

@@ -1188,6 +1188,10 @@ Live555Client::Live555Client(void)
 	, b_is_paused(false)
 	, b_do_control_pause_state(false)
 	, u_port_begin(0)
+	, user_name("")
+	, password("")
+	, sdp("")
+	, user_agent("CCTVClient/1.0")
 	, demuxLoopFlag(true)
 	, demuxLoopHandle(NULL)
 {
@@ -1218,7 +1222,7 @@ int Live555Client::open(const char* url)
 
 	environment = static_cast<UsageEnvironment*>(env);
 
-	rtsp = client = new MyRTSPClient(*environment, url, 0, "CCTVClient/1.0", 0, this);
+	rtsp = client = new MyRTSPClient(*environment, url, 0, user_agent.c_str(), 0, this);
 	if (!rtsp) {
 		stop();
 		return -1;
@@ -1375,6 +1379,11 @@ void Live555Client::setUser(const char* user_name, const char* password)
 {
 	this->user_name = user_name;
 	this->password = password;
+}
+
+void Live555Client::setUserAgent(const char* user_agent)
+{
+	this->user_agent = user_agent;
 }
 
 void Live555Client::continueAfterDESCRIBE( int result_code, char* result_string )
@@ -1595,7 +1604,7 @@ void Live555Client::onStreamRead(LiveTrack* track, unsigned int i_size,
 
 void Live555Client::onStreamClose(LiveTrack* track)
 {
-	track->setSelected(true);
+	track->setSelected(false);
     event_rtsp = (char)0xff;
     event_data = (char)0xff;
 }
