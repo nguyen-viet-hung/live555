@@ -975,8 +975,10 @@ int Live555Client::setup()
 			{
 				delete tk;
 			}
-			else
+			else {
 				listTracks.push_back(tk);
+				onInitializedTrack(tk);
+			}
         }
     }
     delete iter;
