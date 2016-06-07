@@ -32,6 +32,7 @@
 #include <limits.h>
 
 #if defined(_WIN32) || defined(WIN32)
+#include <Windows.h>
 #pragma warning(disable:4996)
 #endif
 
@@ -1150,6 +1151,11 @@ void Live555Client::demux_loop(void* opaque)
 {
 	Live555Client* pThis = static_cast<Live555Client*>(opaque);
 	std::chrono::high_resolution_clock::time_point last_call_timeout= std::chrono::high_resolution_clock::now();
+
+#if defined(_WIN32) || defined(WIN32)
+	timeBeginPeriod(1);
+#endif
+
 	while (pThis->demuxLoopFlag)
 	{
 		std::chrono::seconds lasting = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - last_call_timeout);
@@ -1165,6 +1171,11 @@ void Live555Client::demux_loop(void* opaque)
 
 		pThis->demux();
 	}
+
+#if defined(_WIN32) || defined(WIN32)
+	timeBeginPeriod(1);
+#endif
+
 }
 
 Live555Client::Live555Client(void)
@@ -1251,7 +1262,11 @@ int Live555Client::open(const char* url)
         else
         {
             stop();
-			return i_code;
+
+			if (i_code > 0)
+				return i_code;
+			else
+				return -1; // timeout
         }
     }
 
