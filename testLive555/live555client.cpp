@@ -1136,13 +1136,12 @@ int Live555Client::demux(void)
   //      msg_Err( p_demux, "no data received in 10s, aborting" );
   //      return 0;
   //  }
-  //  else if( !p_sys->b_multicast && !p_sys->b_paused &&
-  //           ( p_sys->i_no_data_ti > 34 ) )
-  //  {
-  //      /* EOF ? */
-  //      msg_Warn( p_demux, "no data received in 10s, eof ?" );
-  //      return 0;
-  //  }
+
+    if( i_no_data_ti > 34 ) //no data received in 10s, eof ?
+    {
+		onEOF();
+        return 0;
+    }
 
     return b_error ? 0 : 1;
 }

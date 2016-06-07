@@ -693,6 +693,7 @@ public:
                         unsigned int duration );
 	void onStreamClose(LiveTrack* track);
 	virtual void onInitializedTrack(LiveTrack* track) {}
+	virtual void onEOF() {}
 	virtual void onData(LiveTrack* track, uint8_t* p_buffer, int i_size, int i_truncated_bytes, int64_t pts, int64_t dts) {}
 };
 
