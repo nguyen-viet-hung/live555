@@ -1253,12 +1253,6 @@ int Live555Client::open(const char* url)
 			stop();
 			return i_code;
         }
-        else if( i_code > 0 && i_code != 404 /* && !var_GetBool( p_demux, "rtsp-http" ) */) // resolve later
-        {
-            /* Perhaps a firewall is being annoying. Try HTTP tunneling mode */
-            stop();
-			return i_code;
-        }
         else
         {
             stop();
