@@ -627,6 +627,7 @@ protected:
 
 	bool  b_error;
 	bool  b_get_param;
+	bool  b_is_playing;
 	int   i_live555_ret; /* live555 callback return code */
 
 	unsigned int     i_timeout;     /* session timeout value in seconds */
@@ -675,8 +676,9 @@ public:
 	void togglePause();
 	int stop();
 
-	bool isNeedStop() { return b_need_stop; }
-	bool isPaused() { return b_is_paused; }
+	bool isNeedStop() const { return b_need_stop; }
+	bool isPaused() const { return b_is_paused; }
+	bool isPlaying() const { return b_is_playing; }
 
 	void setUser(const char* user_name, const char* password);
 	void setUserAgent(const char* user_agent);

@@ -1138,7 +1138,7 @@ int Live555Client::demux(void)
   //      return 0;
   //  }
 
-    if( i_no_data_ti > 34 ) //no data received in 10s, eof ?
+	if( i_no_data_ti > 33 || i_live555_ret == 454) //no data received in 10s, eof ?
     {
 		onEOF();
         return 0;
@@ -1159,7 +1159,7 @@ void Live555Client::demux_loop(void* opaque)
 	while (pThis->demuxLoopFlag)
 	{
 		std::chrono::seconds lasting = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - last_call_timeout);
-		if (lasting.count() >= pThis->i_timeout) {
+		if (lasting.count() >= (pThis->i_timeout - 2)) {
 			last_call_timeout= std::chrono::high_resolution_clock::now();
 			pThis->b_timeout_call = true;
 		}
@@ -1206,6 +1206,7 @@ Live555Client::Live555Client(void)
 	, user_agent("CCTVClient/1.0")
 	, demuxLoopFlag(true)
 	, demuxLoopHandle(NULL)
+	, b_is_playing(false)
 {
 }
 
@@ -1330,6 +1331,7 @@ int Live555Client::play()
 	b_error = false;
 	b_is_paused = false;
 	b_do_control_pause_state = false;
+	b_timeout_call = true;
 
 	if (!demuxLoopHandle) {
 		demuxLoopFlag = true;
@@ -1610,6 +1612,24 @@ void Live555Client::onStreamRead(LiveTrack* track, unsigned int i_size,
     //{
     //    tk->i_pts = i_pts;
     //}
+	{
+		MediaSubsession* sub = static_cast<MediaSubsession*>(track->getMediaSubsession());
+		uint8_t* p_buffer = track->buffer();
+
+		if( track->getFormat().i_codec == VLC_CODEC_AMR_NB ||
+			track->getFormat().i_codec == VLC_CODEC_AMR_WB )
+		{
+			p_buffer++;
+		}
+		else if( track->getFormat().i_codec == VLC_CODEC_H261 || track->getFormat().i_codec == VLC_CODEC_H264 || track->getFormat().i_codec == VLC_CODEC_HEVC )
+		{
+			p_buffer += 4;
+		}
+
+        track->doWaiting(1);
+        sub->readSource()->getNextFrame( p_buffer, track->buffer_size(),
+                                        Live555Client::LiveTrack::streamRead, track, Live555Client::LiveTrack::streamClose, track);
+	}
 }
 
 void Live555Client::onStreamClose(LiveTrack* track)
