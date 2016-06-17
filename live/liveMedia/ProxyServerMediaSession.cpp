@@ -498,8 +498,8 @@ FramedSource* ProxyServerMediaSubsession::createNewStreamSource(unsigned clientS
 
   // If we haven't yet created a data source from our 'media subsession' object, initiate() it to do so:
   if (fClientMediaSubsession.readSource() == NULL) {
-    fClientMediaSubsession.receiveRawMP3ADUs(); // hack for MPA-ROBUST streams
-    fClientMediaSubsession.receiveRawJPEGFrames(); // hack for proxying JPEG/RTP streams. (Don't do this if we're transcoding.)
+    if (sms->fTranscodingTable == NULL || !sms->fTranscodingTable->weWillTranscode("audio", "MPA-ROBUST")) fClientMediaSubsession.receiveRawMP3ADUs(); // hack for proxying MPA-ROBUST streams
+    if (sms->fTranscodingTable == NULL || !sms->fTranscodingTable->weWillTranscode("video", "JPEG")) fClientMediaSubsession.receiveRawJPEGFrames(); // hack for proxying JPEG/RTP streams.
     fClientMediaSubsession.initiate();
     if (verbosityLevel() > 0) {
       envir() << "\tInitiated: " << *this << "\n";

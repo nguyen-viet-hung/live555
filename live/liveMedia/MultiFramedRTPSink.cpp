@@ -201,7 +201,13 @@ void MultiFramedRTPSink::buildAndSendPacket(Boolean isFirstPacket) {
 void MultiFramedRTPSink::packFrame() {
   // Get the next frame.
 
-  // First, see if we have an overflow frame that was too big for the last pkt
+  // First, skip over the space we'll use for any frame-specific header:
+  fCurFrameSpecificHeaderPosition = fOutBuf->curPacketSize();
+  fCurFrameSpecificHeaderSize = frameSpecificHeaderSize();
+  fOutBuf->skipBytes(fCurFrameSpecificHeaderSize);
+  fTotalFrameSpecificHeaderSizes += fCurFrameSpecificHeaderSize;
+
+  // See if we have an overflow frame that was too big for the last pkt
   if (fOutBuf->haveOverflowData()) {
     // Use this frame before reading a new one from the source
     unsigned frameSize = fOutBuf->overflowDataSize();
@@ -213,12 +219,6 @@ void MultiFramedRTPSink::packFrame() {
   } else {
     // Normal case: we need to read a new frame from the source
     if (fSource == NULL) return;
-
-    fCurFrameSpecificHeaderPosition = fOutBuf->curPacketSize();
-    fCurFrameSpecificHeaderSize = frameSpecificHeaderSize();
-    fOutBuf->skipBytes(fCurFrameSpecificHeaderSize);
-    fTotalFrameSpecificHeaderSizes += fCurFrameSpecificHeaderSize;
-
     fSource->getNextFrame(fOutBuf->curPtr(), fOutBuf->totalBytesAvailable(),
 			  afterGettingFrame, this, ourHandleClosure, this);
   }

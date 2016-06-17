@@ -39,8 +39,10 @@ public:
 
 		while(left) {
 			AVFrame* ret = decoder->decode(tmp, left, consumed);
-			if (ret)
+			if (ret) {
+				av_frame_unref(ret);
 				std::cout << "Got frame!!!" << std::endl;
+			}
 
 			tmp += consumed;
 			left -= consumed;

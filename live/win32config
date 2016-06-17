@@ -19,7 +19,7 @@ UI_OPTS =		$(guilflags) $(guilibsdll)
 CONSOLE_UI_OPTS =		$(conlflags) $(conlibsdll)
 CPU=i386
 
-TOOLS32	=		c:\Program Files (x86)\Microsoft Visual Studio 11.0\VC
+TOOLS32	=		c:\Program Files\DevStudio\Vc
 COMPILE_OPTS =		$(INCLUDES) $(cdebug) $(cflags) $(cvarsdll) -I. -I"$(TOOLS32)\include"
 C =			c
 C_COMPILER =		"$(TOOLS32)\bin\cl"
@@ -31,7 +31,7 @@ OBJ =			obj
 LINK =			$(link) -out:
 LIBRARY_LINK =		lib -out:
 LINK_OPTS_0 =		$(linkdebug) msvcirt.lib
-LIBRARY_LINK_OPTS =
+LIBRARY_LINK_OPTS =	
 LINK_OPTS =		$(LINK_OPTS_0) $(UI_OPTS)
 CONSOLE_LINK_OPTS =	$(LINK_OPTS_0) $(CONSOLE_UI_OPTS)
 SERVICE_LINK_OPTS =     kernel32.lib advapi32.lib shell32.lib -subsystem:console,$(APPVER)

@@ -97,7 +97,7 @@ int main(int argc, char** argv) {
 
     case 'T': {
       // stream RTP and RTCP over a HTTP connection
-      if (argc > 3 && argv[2][0] != '-') {
+      if (argc > 2 && argv[2][0] != '-') {
 	// The next argument is the HTTP server port number:                                                                       
 	if (sscanf(argv[2], "%hu", &tunnelOverHTTPPortNum) == 1
 	    && tunnelOverHTTPPortNum > 0) {
@@ -113,7 +113,7 @@ int main(int argc, char** argv) {
 
     case 'p': {
       // specify a rtsp server port number 
-      if (argc > 3 && argv[2][0] != '-') {
+      if (argc > 2 && argv[2][0] != '-') {
         // The next argument is the rtsp server port number:
         if (sscanf(argv[2], "%hu", &rtspServerPortNum) == 1
             && rtspServerPortNum > 0) {
