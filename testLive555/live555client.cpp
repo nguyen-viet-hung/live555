@@ -30,6 +30,7 @@
 #include <string.h>
 #include <assert.h>
 #include <limits.h>
+#include <stdio.h>
 
 #if defined(_WIN32) || defined(WIN32)
 #include <Windows.h>
@@ -870,7 +871,8 @@ int Live555Client::setup()
                     var_GetBool( p_demux, "rtsp-http" );*/
     i_client_port = u_port_begin; //var_InheritInteger( p_demux, "rtp-client-port" );
 
-
+	/* here print sdp on debug */
+	printf("SDP content:\n%s", sdp.c_str());
     /* Create the session from the SDP */
 	if( !( media_session = ms = MediaSession::createNew( *environment, sdp.c_str() ) ) )
     {
@@ -1375,6 +1377,7 @@ int Live555Client::stop()
 
     if( env ) {
 		environment->reclaim();
+		env = NULL;
 	}
 
 	while (!listTracks.empty()) {
@@ -1385,6 +1388,7 @@ int Live555Client::stop()
 	delete sch;
 	scheduler = NULL;
 	b_is_playing = false;
+	u_port_begin = 0;
 	return 0;
 }
 
