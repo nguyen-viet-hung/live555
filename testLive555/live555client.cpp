@@ -847,7 +847,7 @@ bool Live555Client::waitLive555Response( int i_timeout /* ms */ )
     return !b_error;
 }
 
-#define DEFAULT_FRAME_BUFFER_SIZE 100000
+#define DEFAULT_FRAME_BUFFER_SIZE 500000
 
 int Live555Client::setup()
 {
@@ -1332,6 +1332,7 @@ int Live555Client::play()
 	b_is_paused = false;
 	b_do_control_pause_state = false;
 	b_timeout_call = true;
+	b_is_playing = true;
 
 	if (!demuxLoopHandle) {
 		demuxLoopFlag = true;
