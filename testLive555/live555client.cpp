@@ -1384,7 +1384,7 @@ int Live555Client::stop()
     
 	delete sch;
 	scheduler = NULL;
-
+	b_is_playing = false;
 	return 0;
 }
 
