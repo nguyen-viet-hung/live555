@@ -1389,6 +1389,9 @@ int Live555Client::stop()
 	scheduler = NULL;
 	b_is_playing = false;
 	u_port_begin = 0;
+	user_name = "";
+	password = "";
+
 	return 0;
 }
 
