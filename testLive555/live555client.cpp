@@ -1642,4 +1642,15 @@ void Live555Client::onStreamClose(LiveTrack* track)
 	track->setSelected(false);
     event_rtsp = (char)0xff;
     event_data = (char)0xff;
+
+	int nb_streams = 0;
+	for (auto it = listTracks.begin(); it != listTracks.end(); ++it)
+	{
+		if ((*it)->isSelected())
+			nb_streams++;
+	}
+
+	//have no streams left, it is realy EOF
+	if (!nb_streams)
+		onEOF();
 }
