@@ -986,7 +986,7 @@ int Live555Client::setup()
     }
     delete iter;
     
-	if( !listTracks.size() ) i_return = -1;
+	if( !listTracks.size() ) i_return = i_live555_ret;
 
     /* Retrieve the starttime if possible */
     f_npt_start = ms->playStartTime();
