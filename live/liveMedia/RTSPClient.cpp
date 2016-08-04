@@ -1742,6 +1742,10 @@ void RTSPClient::handleResponseBytes(int newBytesRead) {
 	    setBaseURL(newBaseURL);
 	    delete[] newBaseURL;
 	  }
+	} else if (checkForHeader(lineStart, "Connection:", 11, headerParamsStr)) {
+	  if (_strncasecmp(headerParamsStr, "Close", 5) == 0) {
+	    resetTCPSockets();
+	  }
 	}
       }
       if (!reachedEndOfHeaders) break; // an error occurred

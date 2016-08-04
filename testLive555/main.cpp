@@ -97,9 +97,9 @@ int main(int argc, char** argv) {
 
 	avcodec_register_all();
 	myClient* client;
-	//const char* url = "rtsp://192.168.61.80/axis-media/media.amp";
+	const char* url = "rtsp://192.168.61.90/axis-media/media.amp";
 	//const char* url = "rtsp://rtsp-v3-spbtv.msk.spbtv.com/spbtv_v3_1/118_350.sdp";
-	const char* url = argv[1];
+	//const char* url = argv[1];
 	client = new myClient();
 	client->setRTPPortBegin(6868);
 	int ret = client->open(url);
@@ -117,6 +117,11 @@ int main(int argc, char** argv) {
 
 			if (c == 'p' || c == 'P')
 				client->togglePause();
+			else if (c == 'r' || c == 'R') {
+				client->stop();
+				if (!client->open(url))
+					client->play();
+			}
 		} while ((c != (char) 27) && (!client->isNeedStop()));
 	}
 

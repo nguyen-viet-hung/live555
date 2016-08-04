@@ -262,9 +262,9 @@ RTSPServer::~RTSPServer() {
   // Turn off background HTTP read handling (if any):
   envir().taskScheduler().turnOffBackgroundReadHandling(fHTTPServerSocket);
   ::closeSocket(fHTTPServerSocket);
-  delete fClientConnectionsForHTTPTunneling;
   
   cleanup(); // Removes all "ClientSession" and "ClientConnection" objects, and their tables.
+  delete fClientConnectionsForHTTPTunneling;
   
   // Delete any pending REGISTER requests:
   RegisterRequestRecord* registerRequest;
@@ -737,10 +737,10 @@ void RTSPServer::RTSPClientConnection::handleAlternativeRequestByte1(u_int8_t re
 }
 
 // A special version of "parseTransportHeader()", used just for parsing the "Transport:" header in an incoming "REGISTER" command:
-static void parseTransportHeaderForREGISTER(char const* buf,
-					    Boolean &reuseConnection,
-					    Boolean& deliverViaTCP,
-					    char*& proxyURLSuffix) {
+void parseTransportHeaderForREGISTER(char const* buf,
+				     Boolean &reuseConnection,
+				     Boolean& deliverViaTCP,
+				     char*& proxyURLSuffix) {
   // Initialize the result parameters to default values:
   reuseConnection = False;
   deliverViaTCP = False;
@@ -1472,12 +1472,10 @@ void RTSPServer::RTSPClientSession
     
     if (fStreamStates == NULL) {
       // This is the first "SETUP" for this session.  Set up our array of states for all of this session's subsessions (tracks):
-      ServerMediaSubsessionIterator iter(*fOurServerMediaSession);
-      for (fNumStreamStates = 0; iter.next() != NULL; ++fNumStreamStates) {} // begin by counting the number of subsessions (tracks)
-      
+      fNumStreamStates = fOurServerMediaSession->numSubsessions();
       fStreamStates = new struct streamState[fNumStreamStates];
       
-      iter.reset();
+      ServerMediaSubsessionIterator iter(*fOurServerMediaSession);
       ServerMediaSubsession* subsession;
       for (unsigned i = 0; i < fNumStreamStates; ++i) {
 	subsession = iter.next();
