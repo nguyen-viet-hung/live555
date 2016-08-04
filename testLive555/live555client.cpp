@@ -986,7 +986,7 @@ int Live555Client::setup()
     }
     delete iter;
     
-	if( !listTracks.size() ) i_return = -1;
+	if( !listTracks.size() ) i_return = i_live555_ret;
 
     /* Retrieve the starttime if possible */
     f_npt_start = ms->playStartTime();
@@ -1389,6 +1389,9 @@ int Live555Client::stop()
 	scheduler = NULL;
 	b_is_playing = false;
 	u_port_begin = 0;
+	user_name = "";
+	password = "";
+
 	return 0;
 }
 
@@ -1642,4 +1645,15 @@ void Live555Client::onStreamClose(LiveTrack* track)
 	track->setSelected(false);
     event_rtsp = (char)0xff;
     event_data = (char)0xff;
+
+	int nb_streams = 0;
+	for (auto it = listTracks.begin(); it != listTracks.end(); ++it)
+	{
+		if ((*it)->isSelected())
+			nb_streams++;
+	}
+
+	//have no streams left, it is realy EOF
+	if (!nb_streams)
+		onEOF();
 }
