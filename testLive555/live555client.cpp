@@ -992,7 +992,8 @@ int Live555Client::setup()
     f_npt_start = ms->playStartTime();
 
     /* Retrieve the duration if possible */
-    f_npt_length = ms->playEndTime();
+	if (ms->playEndTime() > 0)
+	    f_npt_length = ms->playEndTime();
 
     /* */
     //msg_Dbg( p_demux, "setup start: %f stop:%f", p_sys->f_npt_start, p_sys->f_npt_length );
@@ -1021,6 +1022,26 @@ void Live555Client::controlPauseState()
 	}
 
     waitLive555Response();
+}
+
+void Live555Client::controlSeek()
+{
+	RTSPClient* client = static_cast<RTSPClient*>(rtsp);
+	MediaSession* ms = static_cast<MediaSession*>(media_session);
+
+	client->sendPauseCommand( *ms, MyRTSPClient::default_live555_callback );
+	waitLive555Response();
+	
+	client->sendPlayCommand( *ms, MyRTSPClient::default_live555_callback, f_seekTime, -1.0f, ms->scale() );
+    waitLive555Response();
+
+	f_seekTime = -1.0;
+	/* Retrieve the starttime if possible */
+    f_npt = f_npt_start = ms->playStartTime();
+
+    /* Retrieve the duration if possible */
+    if( ms->playEndTime() > 0 )
+        f_npt_length = ms->playEndTime();
 }
 
 int Live555Client::demux(void)
@@ -1167,7 +1188,11 @@ void Live555Client::demux_loop(void* opaque)
 		}
 
 		if (pThis->b_do_control_pause_state) {
-			pThis->controlPauseState();
+			if (pThis->f_seekTime >= 0)
+				pThis->controlSeek();
+			else
+				pThis->controlPauseState();
+
 			pThis->b_do_control_pause_state = false;
 		}
 
@@ -1193,6 +1218,7 @@ Live555Client::Live555Client(void)
 	, i_timeout(60)
 	, b_timeout_call(false)
 	, i_pcr(VLC_TS_0)
+	, f_seekTime(-1.0)
 	, f_npt(0)
 	, f_npt_length(0)
 	, f_npt_start(0)
@@ -1346,6 +1372,23 @@ int Live555Client::play()
 void Live555Client::togglePause()
 {
 	b_do_control_pause_state = true;
+}
+
+int Live555Client::seek(double f_time)
+{
+	if (f_npt_length <= 0)
+		return -1; // unsupported
+
+	if (f_time <= 0)
+		f_time = 0;
+
+	if (f_time > f_npt_length)
+		f_time = f_npt_length;
+
+	f_seekTime = f_time;
+
+	b_do_control_pause_state = true;
+	return 0;
 }
 
 int Live555Client::stop()

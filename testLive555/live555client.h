@@ -634,6 +634,7 @@ protected:
     bool             b_timeout_call;/* mark to send an RTSP call to prevent server timeout */
 
 	int64_t          i_pcr; /* The clock */
+	double           f_seekTime;
     double           f_npt;
     double           f_npt_length;
     double           f_npt_start;
@@ -664,6 +665,7 @@ protected:
 	int setup();
 
 	void controlPauseState();
+	void controlSeek();
 
 	int demux(void);
 	static void demux_loop(void* opaque);
@@ -674,7 +676,10 @@ public:
 	int open(const char* url);
 	int play();
 	void togglePause();
+	int seek(double f_time /* in second */);
 	int stop();
+
+	int64_t getCurrentTime() { return (int64_t)(f_npt * 1000000.0); }
 
 	bool isNeedStop() const { return b_need_stop; }
 	bool isPaused() const { return b_is_paused; }
