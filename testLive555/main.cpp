@@ -10,12 +10,13 @@
 #include <unistd.h>
 #include <termios.h>
 #include <stdio.h>
+#include <sys/select.h>
+#include <stropts.h>
 
 static struct termios _old, _new;
 
 /* Initialize new terminal i/o settings */
-void initTermios(int echo)
-{
+void initTermios(int echo) {
   tcgetattr(0, &_old); /* grab old terminal i/o settings */
   _new = _old; /* make new settings same as old settings */
   _new.c_lflag &= ~ICANON; /* disable buffered i/o */
@@ -24,14 +25,12 @@ void initTermios(int echo)
 }
 
 /* Restore old terminal i/o settings */
-void resetTermios(void)
-{
+void resetTermios(void) {
   tcsetattr(0, TCSANOW, &_old);
 }
 
 /* Read 1 character - echo defines echo mode */
-char getch_(int echo)
-{
+char getch_(int echo) {
   char ch;
   initTermios(echo);
   ch = getchar();
@@ -40,9 +39,32 @@ char getch_(int echo)
 }
 
 /* Read 1 character without echo */
-char getch(void)
-{
+char getch(void) {
   return getch_(0);
+}
+
+/**
+ Linux (POSIX) implementation of _kbhit().
+ Morgan McGuire, morgan@cs.brown.edu
+ */
+
+int _kbhit() {
+    static const int STDIN = 0;
+    static bool initialized = false;
+
+    if (! initialized) {
+        // Use termios to turn off line buffering
+        termios term;
+        tcgetattr(STDIN, &term);
+        term.c_lflag &= ~ICANON;
+        tcsetattr(STDIN, TCSANOW, &term);
+        setbuf(stdin, NULL);
+        initialized = true;
+    }
+
+    int bytesWaiting;
+    ioctl(STDIN, FIONREAD, &bytesWaiting);
+    return bytesWaiting;
 }
 
 #endif
@@ -84,7 +106,7 @@ public:
 			AVFrame* ret = decoder->decode(tmp, left, consumed);
 			if (ret) {
 				av_frame_unref(ret);
-				std::cout << "Got frame!!!" << std::endl;
+				//std::cout << "Got frame!!!\r";
 			}
 
 			tmp += consumed;
@@ -97,9 +119,11 @@ int main(int argc, char** argv) {
 
 	avcodec_register_all();
 	myClient* client;
-	const char* url = "rtsp://192.168.61.90/axis-media/media.amp";
+	//const char* url = "rtsp://mpv.cdn3.bigCDN.com/bigCDN/_definst_/mp4:bigbuckbunnyiphone_400.mp4";
+	//const char* url = "rtsp://192.168.61.90/axis-media/media.amp";
 	//const char* url = "rtsp://rtsp-v3-spbtv.msk.spbtv.com/spbtv_v3_1/118_350.sdp";
 	//const char* url = argv[1];
+	const char* url = "rtsp://nvr:nvr@192.168.6.245:8554/11100608?t1=20160812-140000&t2=20160812-140245&speed=1";
 	client = new myClient();
 	client->setRTPPortBegin(6868);
 	int ret = client->open(url);
@@ -113,16 +137,43 @@ int main(int argc, char** argv) {
 		client->play();
 		char c;
 		do {
-			c = getch();
 
-			if (c == 'p' || c == 'P')
-				client->togglePause();
-			else if (c == 'r' || c == 'R') {
-				client->stop();
-				if (!client->open(url))
-					client->play();
+			if (_kbhit())
+			{
+				c = getch();
+
+				if (c == 'p' || c == 'P')
+					client->togglePause();
+				else if (c == 'r' || c == 'R') {
+					client->stop();
+					if (!client->open(url))
+						client->play();
+				}
+				else if (c == 'b' || c == 'B') {
+					int64_t cur = client->getCurrentTime();
+					//seek back 5 second
+					cur -= 5000000;
+					if (client->seek((double)cur / 1000000.0) < 0)
+						std::cout <<"\nUnsupported seek" << std::endl;
+				}
+				else if (c == 'f' || c == 'F') {
+					int64_t cur = client->getCurrentTime();
+					//seek forward 5 second
+					cur += 5000000;
+					if (client->seek((double)cur / 1000000.0) < 0)
+						std::cout <<"\nUnsupported seek" << std::endl;
+				}
+				else if (c == 27) {
+					break;
+				}
 			}
-		} while ((c != (char) 27) && (!client->isNeedStop()));
+			else
+			{
+				_sleep(1);
+			}
+
+			std::cout << "Current time = " << client->getCurrentTime() / 1000000 << "\r";
+		} while (!client->isNeedStop());
 	}
 
 	client->stop();
