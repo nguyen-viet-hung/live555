@@ -118,6 +118,7 @@ public:
 int main(int argc, char** argv) {
 
 	avcodec_register_all();
+	av_log_set_level(AV_LOG_PANIC);
 	myClient* client;
 	//const char* url = "rtsp://mpv.cdn3.bigCDN.com/bigCDN/_definst_/mp4:bigbuckbunnyiphone_400.mp4";
 	//const char* url = "rtsp://192.168.61.90/axis-media/media.amp";
@@ -135,6 +136,7 @@ int main(int argc, char** argv) {
 
 	if (!ret) {
 		client->play();
+		std::cout << "\n\n";
 		char c;
 		do {
 
