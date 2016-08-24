@@ -603,7 +603,7 @@ public:
 		bool isAsf() { return b_asf; }
 		bool discardTruncated() { return b_discard_trunc; }
 		void* getMediaSubsession() { return media_sub_session; }
-
+		const char* getSessionId() const;
 		void setNPT(double npt) { f_npt = npt; }
 		double getNPT() { return f_npt; }
 

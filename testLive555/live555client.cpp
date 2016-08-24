@@ -790,6 +790,15 @@ int Live555Client::LiveTrack::init()
 	return 0;
 }
 
+const char* Live555Client::LiveTrack::getSessionId() const
+{
+	MediaSubsession* sub = static_cast<MediaSubsession*>(media_sub_session);
+	if (!sub)
+		return "";
+
+	return sub->sessionId();
+}
+
 void Live555Client::LiveTrack::streamRead(void *opaque, unsigned int i_size,
                         unsigned int i_truncated_bytes, struct timeval pts,
                         unsigned int duration)
