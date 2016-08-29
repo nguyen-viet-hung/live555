@@ -70,6 +70,8 @@ int _kbhit() {
 
 #endif
 
+//#define TEST_MULTI_CLIENT
+
 // for libavcodec
 static int ff_lockmgr(void **mutex, enum AVLockOp op)
 {
@@ -128,7 +130,9 @@ public:
 				AVFrame* ret = decoder->decode(tmp, left, consumed);
 				if (ret) {
 					av_frame_unref(ret);
+#ifdef TEST_MULTI_CLIENT
 					std::cout << "client " << this << " got frame!!!\n";
+#endif
 				}
 
 				tmp += consumed;
@@ -159,13 +163,17 @@ int main(int argc, char** argv) {
 		ret = client->open(url);
 	}
 
+#ifdef TEST_MULTI_CLIENT
 	myClient* client1 = new myClient();
 	client1->setRTPPortBegin(5000);
 	client1->open("rtsp://root:elcom@192.168.61.60/axis-media/media.amp");
+#endif
 
 	if (!ret) {
 		client->play();
+#ifdef TEST_MULTI_CLIENT
 		client1->play();
+#endif
 		std::cout << "\n\n";
 		char c;
 		do {
@@ -178,8 +186,14 @@ int main(int argc, char** argv) {
 					client->togglePause();
 				else if (c == 'r' || c == 'R') {
 					client->stop();
-					if (!client->open(url))
+					delete client;
+					std::cout << "\n\n";
+					client = new myClient();
+					client->setRTPPortBegin(6868);
+					if (!client->open(url)) {
 						client->play();
+						std::cout << "\n\n";
+					}
 				}
 				else if (c == 'b' || c == 'B') {
 					int64_t cur = client->getCurrentTime();
@@ -203,17 +217,18 @@ int main(int argc, char** argv) {
 			{
 				_sleep(1);
 			}
-
-			//std::cout << "Current time = " << client->getCurrentTime() / 1000000 << "\r";
+#ifndef TEST_MULTI_CLIENT
+			std::cout << "Current time = " << client->getCurrentTime() / 1000000 << "\r";
+#endif
 		} while (!client->isNeedStop());
 	}
 
 	client->stop();
-
 	delete client;
 
+#ifdef TEST_MULTI_CLIENT
 	client1->stop();
 	delete client1;
-
+#endif
 	return 0;
 }
