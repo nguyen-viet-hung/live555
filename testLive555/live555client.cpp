@@ -26,6 +26,7 @@
 #include <liveMedia.hh>
 #include <liveMedia_version.hh>
 #include <Base64.hh>
+#include <RTSPCommon.hh>
 #include <chrono>
 #include <string.h>
 #include <assert.h>
@@ -289,6 +290,7 @@ class MyRTSPClient : public RTSPClient
 {
 protected:
 	Live555Client* parent;
+	Boolean fSupportsGetParameter;
 public:
     MyRTSPClient( UsageEnvironment& env, char const* rtspURL, int verbosityLevel,
                    char const* applicationName, portNumBits tunnelOverHTTPPortNum,
@@ -300,6 +302,7 @@ public:
 #endif
                    )
 				   , parent (p_sys)
+				   , fSupportsGetParameter(False)
     {
     }
 
@@ -310,6 +313,9 @@ public:
                                           unsigned int& configSize );
 	static uint8_t * parseVorbisConfigStr( char const* configStr,
                                       unsigned int& configSize );
+
+	void setSupportsGetParameter(Boolean val) { fSupportsGetParameter = val; }
+	Boolean isSupportsGetParameter() { return fSupportsGetParameter; }
 };
 
 void MyRTSPClient::continueAfterDESCRIBE(RTSPClient* client, int result_code, char* result_string )
@@ -322,6 +328,9 @@ void MyRTSPClient::continueAfterDESCRIBE(RTSPClient* client, int result_code, ch
 void MyRTSPClient::continueAfterOPTIONS( RTSPClient* client, int result_code, char* result_string )
 {
 	MyRTSPClient* pThis = static_cast<MyRTSPClient*>(client);
+
+	Boolean serverSupportsGetParameter = RTSPOptionIsSupported("GET_PARAMETER", result_string);
+	pThis->setSupportsGetParameter(serverSupportsGetParameter);
 	pThis->parent->continueAfterOPTIONS(result_code, result_string);
 	delete[] result_string;
 }
@@ -400,8 +409,6 @@ uint8_t * MyRTSPClient::parseVorbisConfigStr( char const* configStr,
     delete[] p_cfg;
     return p_extra;
 }
-
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 Live555Client::LiveTrack::LiveTrack(Live555Client* p_sys, void* sub, int buffer_size)
@@ -1056,7 +1063,7 @@ void Live555Client::controlSeek()
 int Live555Client::demux(void)
 {
     TaskToken      task;
-	RTSPClient*    client = static_cast<RTSPClient*>(rtsp);
+	MyRTSPClient*    client = static_cast<MyRTSPClient*>(rtsp);
 	MediaSession*  ms = static_cast<MediaSession*>(media_session);
 	TaskScheduler* sch = static_cast<TaskScheduler*>(scheduler);
 
@@ -1067,7 +1074,14 @@ int Live555Client::demux(void)
     if( b_timeout_call && client && ms )
     {
         char *psz_bye = NULL;
-        client->sendGetParameterCommand( *ms, NULL, psz_bye );
+		if (client->isSupportsGetParameter())
+			client->sendGetParameterCommand( *ms, NULL, psz_bye );
+		else {
+			Authenticator authenticator;
+			authenticator.setUsernameAndPassword( user_name.c_str(), password.c_str() );
+			client->sendOptionsCommand(NULL, &authenticator);
+		}
+
         b_timeout_call = false;
     }
 

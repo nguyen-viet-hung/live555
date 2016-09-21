@@ -673,13 +673,14 @@ public:
 	Live555Client(void);
 	virtual ~Live555Client(void);
 
-	int open(const char* url);
-	int play();
+	virtual int open(const char* url);
+	virtual int play();
 	void togglePause();
 	int seek(double f_time /* in second */);
-	int stop();
+	virtual int stop();
 
 	int64_t getCurrentTime() { return (int64_t)(f_npt * 1000000.0); }
+	int64_t getStartTime() { return (int64_t)(f_npt_start * 1000000.0); }
 
 	bool isNeedStop() const { return b_need_stop; }
 	bool isPaused() const { return b_is_paused; }
